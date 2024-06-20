@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Tarefas</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h2>Gerenciamento de Tarefas</h2>
+        <form id="tarefaForm">
+            <div class="form-group">
+                <label for="tarefa">Tarefa:</label>
+                <input type="text" class="form-control" id="tarefa" required>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="completada">
+                <label class="form-check-label" for="completada">Completada</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Adicionar Tarefa</button>
+        </form>
+
+        <table class="table mt-5">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Tarefa</th>
+                    <th>Completada</th>
+                    <th>Data de Criação</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tarefasTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Bootstrap JS e jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        // Função para carregar as tarefas da API
+        function carregarTarefas() {
+            fetch('http://localhost:8080/api/v1/tasks/')
+                .then(response => response.json())
+                .then(data => {
+                    const tarefasTableBody = document.getElementById('tarefasTableBody');
+                    tarefasTableBody.innerHTML = '';
+
+                    data.forEach(tarefa => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${tarefa.id}</td>
+                            <td>${tarefa.task}</td>
+                            <td>${tarefa.completed ? 'Sim' : 'Não'}</td>
+                            <td>${new Date(tarefa.createdAt).toLocaleString()}</td>
+                            <td>
+                                <button class="btn btn-warning btn-sm" onclick="editarTarefa(${tarefa.id})">Editar</button>
+                                <button class="btn btn-danger btn-sm" onclick="deletarTarefa(${tarefa.id})">Excluir</button>
+                            </td>
+                        `;
+                        tarefasTableBody.appendChild(tr);
+                    });
+                });
+        }
+
+        // Função para adicionar ou atualizar uma tarefa
+        function adicionarTarefa(event) {
+            event.preventDefault();
+            const tarefa = document.getElementById('tarefa').value;
+            const completada = document.getElementById('completada').checked;
+
+            fetch('http://localhost:8080/api/v1/tasks/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ task: tarefa, completed: completada })
+            })
+                .then(() => {
+                    document.getElementById('tarefa').value = '';
+                    document.getElementById('completada').checked = false;
+                    carregarTarefas();
+                });
+        }
+
+        function editarTarefa(id) {
+            fetch(`http://localhost:8080/api/v1/tasks/${id}`)
+                .then(response => response.json())
+                .then(tarefa => {
+                    console.log(tarefa)
+                    document.getElementById('tarefa').value = tarefa.task;
+                    document.getElementById('completada').checked = tarefa.completed;
+
+                    const button = document.querySelector('button[type="submit"]');
+                    button.textContent = 'Salvar Edição';
+                    button.removeEventListener('click', adicionarTarefa);
+                    button.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        salvarEdicao(id);
+                    });
+                })
+                .catch(error => console.error('Erro ao carregar tarefa para edição:', error));
+        }
+
+        function salvarEdicao(id) {
+            const tarefa = document.getElementById('tarefa').value;
+            const completada = document.getElementById('completada').checked;
+
+            fetch(`http://localhost:8080/api/v1/tasks/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ task: tarefa, completed: completada })
+            })
+                .then(() => {
+                    document.getElementById('tarefa').value = '';
+                    document.getElementById('completada').checked = false;
+
+                    // Resetando o botão para adicionar tarefa após a edição
+                    const button = document.querySelector('button[type="submit"]');
+                    button.textContent = 'Adicionar Tarefa';
+                    button.removeEventListener('click', salvarEdicao);
+                    button.addEventListener('click', adicionarTarefa);
+
+                    carregarTarefas();
+                })
+                .catch(error => console.error('Erro ao salvar edição:', error));
+        }
+
+        // Função para deletar uma tarefa
+        function deletarTarefa(id) {
+            if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                fetch(`http://localhost:8080/api/v1/tasks/${id}`, {
+                    method: 'DELETE'
+                })
+                    .then(() => carregarTarefas());
+            }
+        }
+
+        document.getElementById('tarefaForm').addEventListener('submit', adicionarTarefa);
+        carregarTarefas();
+    </script>
+</body>
+
+</html>
